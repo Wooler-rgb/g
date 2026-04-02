@@ -244,8 +244,10 @@ function OFZPanel({
 
   function handleSell() {
     if (bondValue <= 0) { notify('Нет облигаций для продажи', false); return; }
-    if (onSell(bondValue)) {
-      notify('✓ Облигации проданы', true);
+    const typed = Number(amount.replace(/\s/g, '')) || 0;
+    const toSell = typed > 0 ? Math.min(typed, bondValue) : bondValue;
+    if (onSell(toSell)) {
+      notify(toSell >= bondValue - 1 ? '✓ Все облигации проданы' : `✓ Продано ОФЗ на ${toSell.toLocaleString('ru-RU')} ₽`, true);
       setAmount('');
     } else {
       notify('Ошибка продажи', false);
@@ -281,14 +283,29 @@ function OFZPanel({
           <div className="font-bold text-sm text-[var(--accent)]">+{formatMoney(monthlyIncome)}</div>
         </div>
       </div>
-      {/* Quick percentage buttons */}
-      <div className="flex gap-1 mb-2">
+      {/* Quick percentage buttons — buy from budget / sell from bonds */}
+      <div className="flex gap-1 mb-1">
+        <span className="text-[9px] text-[var(--muted)] self-center mr-0.5">Купить:</span>
         {pctButtons.map((pct) => (
           <button
-            key={pct}
+            key={`b${pct}`}
             onClick={() => setAmount(String(Math.floor(budget * pct / 100)))}
             className="flex-1 py-1 rounded text-[10px] font-bold transition-all hover:scale-105"
             style={{ background: 'rgba(255,198,38,0.08)', border: '1px solid rgba(255,198,38,0.2)', color: 'var(--warning)' }}
+          >
+            {pct}%
+          </button>
+        ))}
+      </div>
+      <div className="flex gap-1 mb-2">
+        <span className="text-[9px] text-[var(--muted)] self-center mr-0.5">Продать:</span>
+        {pctButtons.map((pct) => (
+          <button
+            key={`s${pct}`}
+            onClick={() => setAmount(String(Math.floor(bondValue * pct / 100)))}
+            disabled={bondValue <= 0}
+            className="flex-1 py-1 rounded text-[10px] font-bold transition-all hover:scale-105 disabled:opacity-30"
+            style={{ background: 'rgba(255,120,135,0.07)', border: '1px solid rgba(255,120,135,0.2)', color: 'var(--danger)' }}
           >
             {pct}%
           </button>
@@ -990,6 +1007,18 @@ type NewsArticle = {
   yearMonth: string;
 };
 
+function openLink(url: string) {
+  // Telegram Mini App — use WebApp API
+  const tg = typeof window !== 'undefined' && (window as any).Telegram?.WebApp;
+  if (tg?.openLink) { tg.openLink(url); return; }
+  // iOS standalone (PWA) — window.open is more reliable than <a target="_blank">
+  if (typeof window !== 'undefined' && (window.navigator as any).standalone) {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
+
 function NewsCard({ item, index }: { item: NewsArticle; index: number }) {
   const inner = (
     <div className="flex items-start gap-2">
@@ -1024,10 +1053,11 @@ function NewsCard({ item, index }: { item: NewsArticle; index: number }) {
   };
   if (item.url) {
     return (
-      <a href={item.url} target="_blank" rel="noopener noreferrer"
-        className="block rounded-xl p-3 rise-in transition-colors hover:bg-white/5" style={cardStyle}>
+      <div role="button" tabIndex={0} onClick={() => openLink(item.url!)}
+        onKeyDown={(e) => e.key === 'Enter' && openLink(item.url!)}
+        className="block rounded-xl p-3 rise-in transition-colors hover:bg-white/5 cursor-pointer" style={cardStyle}>
         {inner}
-      </a>
+      </div>
     );
   }
   return <div className="block rounded-xl p-3 rise-in" style={cardStyle}>{inner}</div>;
@@ -1068,6 +1098,9 @@ function HistoricalTradingPage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Track last step we applied animations for (prevents double-fire from polling)
   const lastAnimatedStepRef = useRef(-1);
+  // Track which steps already triggered event/crisis overlays (prevents double-show)
+  const shownEventSteps = useRef<Set<number>>(new Set());
+  const shownCrisisSteps = useRef<Set<number>>(new Set());
 
   const crisis = state.crisis!;
   const isSolo = state.mode === 'solo';
@@ -1078,18 +1111,18 @@ function HistoricalTradingPage() {
   // Fetch news when step or page changes
   useEffect(() => {
     if (!step) return;
-    if (newsPage === 1) setBackendNews(null);
+    setBackendNews(null);
     setNewsLoading(true);
-    fetch(`/api/news?year=${step.year}&month=${step.month}&page=${newsPage}`)
+    fetch(`/api/news?year=${step.year}&month=${step.month}&page=1&limit=5`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data) return;
         setNewsTotal(data.total ?? 0);
-        setBackendNews((prev) => newsPage === 1 ? (data.news ?? []) : [...(prev ?? []), ...(data.news ?? [])]);
+        setBackendNews(data.news ?? []);
       })
-      .catch(() => { if (newsPage === 1) setBackendNews([]); })
+      .catch(() => setBackendNews([]))
       .finally(() => setNewsLoading(false));
-  }, [step?.year, step?.month, newsPage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [step?.year, step?.month]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset page when step changes
   useEffect(() => {
@@ -1165,7 +1198,8 @@ function HistoricalTradingPage() {
         setDividendToasts(paidDivs);
         setTimeout(() => setDividendToasts([]), 6000);
       }
-      if (nextStep.eventName) {
+      if (nextStep.eventName && !shownEventSteps.current.has(nextIndex)) {
+        shownEventSteps.current.add(nextIndex);
         setCrisisEvent({ name: nextStep.eventName, desc: nextStep.eventDescription ?? '', color: nextStep.eventColor ?? 'var(--accent)' });
       }
       const startedCrisis = allCrises.find((c) =>
@@ -1173,7 +1207,8 @@ function HistoricalTradingPage() {
         c.years[0]?.month === nextStep.month &&
         c.id !== crisis.id,
       );
-      if (startedCrisis) {
+      if (startedCrisis && !shownCrisisSteps.current.has(nextIndex)) {
+        shownCrisisSteps.current.add(nextIndex);
         setCrisisAnnouncement({
           id: startedCrisis.id,
           name: startedCrisis.name,
@@ -1229,8 +1264,22 @@ function HistoricalTradingPage() {
         .catch(() => {});
     };
     poll();
-    pollRef.current = setInterval(poll, 3000);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    pollRef.current = setInterval(poll, 5000);
+
+    function onVisibility() {
+      if (document.hidden) {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+      } else {
+        poll();
+        pollRef.current = setInterval(poll, 5000);
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [isMulti, state.roomCode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const prevStep = crisis.years[Math.max(0, state.currentYearIndex - 1)];
@@ -1256,8 +1305,12 @@ function HistoricalTradingPage() {
     api.rooms.setReady(state.roomCode, state.username, next).catch(() => {});
   }
 
+  const nonHostPlayers = roomPlayers.filter((p) => p.username !== state.username);
+  const allPlayersReady = nonHostPlayers.length === 0 || nonHostPlayers.every((p) => readySet.includes(p.username));
+
   function handleAdvanceStep() {
     if (transitioning) return;
+    if (isMulti && isHost && !isLastStep && !allPlayersReady) return;
     if (isLastStep) {
       if (isMulti && state.roomCode) api.rooms.setStatus(state.roomCode, 'finished').catch(() => {});
       router.push('/results');
@@ -1327,10 +1380,12 @@ function HistoricalTradingPage() {
                   Дивиденды получены
                 </div>
                 <div className="text-sm font-bold text-[var(--foreground)]">
-                  {d.ticker} · {d.perShare.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽/акц.
+                  {d.ticker} · {d.perShare.toLocaleString('ru-RU', { maximumFractionDigits: 2 })} ₽/акц × {d.shares.toLocaleString('ru-RU')} шт.
                 </div>
                 <div className="text-sm font-black text-[var(--accent)]">
-                  +{(d.amount / 1000).toFixed(1)} тыс ₽ ({d.shares.toLocaleString('ru-RU')} шт.)
+                  +{d.amount >= 10000
+                    ? `${(d.amount / 1000).toFixed(1)} тыс ₽`
+                    : `${Math.round(d.amount).toLocaleString('ru-RU')} ₽`}
                 </div>
               </div>
             </div>
@@ -1639,7 +1694,8 @@ function HistoricalTradingPage() {
                 )}
                 <button
                   onClick={handleAdvanceStep}
-                  className="flex-[2] py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 pulse-ring"
+                  disabled={isMulti && isHost && !isLastStep && !allPlayersReady}
+                  className="flex-[2] py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-95 pulse-ring disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
                   style={{
                     background: isLastStep
                       ? 'linear-gradient(135deg, var(--accent-pink), rgba(255,79,216,0.6))'
@@ -1647,7 +1703,10 @@ function HistoricalTradingPage() {
                     color: '#061712',
                   }}
                 >
-                  {isLastStep ? '🏁 Подвести итоги' : `📅 Следующий месяц →`}
+                  {isLastStep ? '🏁 Подвести итоги'
+                    : isMulti && nonHostPlayers.length > 0 && !allPlayersReady
+                      ? `⏳ ${readySet.length}/${nonHostPlayers.length} готовы`
+                      : '📅 Следующий месяц →'}
                 </button>
               </>
             )}
@@ -1734,16 +1793,6 @@ function HistoricalTradingPage() {
                 {backendNews && backendNews.map((item, i) => (
                   <NewsCard key={item.url ?? item.title} item={item} index={i} />
                 ))}
-                {backendNews && backendNews.length < newsTotal && (
-                  <button
-                    onClick={() => setNewsPage((p) => p + 1)}
-                    disabled={newsLoading}
-                    className="w-full py-2 text-xs rounded-lg transition-colors"
-                    style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--line)' }}
-                  >
-                    {newsLoading ? 'Загрузка...' : `Ещё (${newsTotal - backendNews.length})`}
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -1798,7 +1847,7 @@ function HistoricalTradingPage() {
           ) : (
             <button
               onClick={handleAdvanceStep}
-              disabled={transitioning}
+              disabled={transitioning || (isMulti && isHost && !isLastStep && !allPlayersReady)}
               className="flex-[1.4] h-10 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-60 flex-shrink-0"
               style={{
                 background: isLastStep
@@ -1807,7 +1856,10 @@ function HistoricalTradingPage() {
                 color: '#061712',
               }}
             >
-              {isLastStep ? '🏁 Итоги' : '📅 Далее'}
+              {isLastStep ? '🏁 Итоги'
+                : isMulti && nonHostPlayers.length > 0 && !allPlayersReady
+                  ? `⏳ ${readySet.length}/${nonHostPlayers.length}`
+                  : '📅 Далее'}
             </button>
           )}
         </div>

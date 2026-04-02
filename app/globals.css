@@ -34,7 +34,10 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  background-color: #04110d; /* prevents white flash when keyboard opens on mobile */
+}
 
 /* Hide scrollbars everywhere while keeping scroll functionality */
 * {

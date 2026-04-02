@@ -140,7 +140,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     [fullPriceMap, priceSnapshot],
   );
 
-  const COMMISSION = 0.005; // 0.5%
+  const COMMISSION = 0.01; // 1%
 
   const buyStock = useCallback(
     (ticker: string, shares: number, price: number): boolean => {
