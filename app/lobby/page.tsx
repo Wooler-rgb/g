@@ -132,27 +132,43 @@ export default function LobbyPage() {
 
         {/* Join link */}
         <div className="glass-panel rounded-2xl p-6 rise-in-1">
-          <p className="text-[var(--muted)] text-sm mb-3 text-center">Ссылка для приглашения друзей</p>
-          <div className="flex gap-3">
+          <p className="text-[var(--muted)] text-sm mb-4 text-center">Ссылка для приглашения друзей</p>
+          <div className="flex gap-4 items-center">
+            {/* QR code */}
             <div
-              className="flex-1 flex items-center justify-center rounded-xl px-4 py-3 font-mono text-sm font-bold text-[var(--accent)] truncate"
-              style={{ background: 'rgba(49,255,140,0.08)', border: '1px solid rgba(49,255,140,0.2)' }}
+              className="flex-shrink-0 rounded-xl overflow-hidden p-1.5"
+              style={{ background: '#fff' }}
             >
-              {joinLink}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(joinLink)}&color=04110d&bgcolor=ffffff`}
+                alt="QR код для входа"
+                width={110}
+                height={110}
+              />
             </div>
-            <button
-              onClick={copyLink}
-              className="px-5 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105 active:scale-95 flex-shrink-0"
-              style={{
-                background: copied ? 'rgba(49,255,140,0.2)' : 'rgba(255,255,255,0.07)',
-                border: '1px solid var(--line-strong)',
-                color: copied ? 'var(--accent)' : 'var(--foreground)',
-              }}
-            >
-              {copied ? '✓ Скопировано' : '📋 Копировать'}
-            </button>
+            {/* Link + copy */}
+            <div className="flex-1 min-w-0 space-y-2">
+              <div
+                className="flex items-center rounded-xl px-3 py-2 font-mono text-xs font-bold text-[var(--accent)] truncate"
+                style={{ background: 'rgba(49,255,140,0.08)', border: '1px solid rgba(49,255,140,0.2)' }}
+              >
+                {joinLink}
+              </div>
+              <button
+                onClick={copyLink}
+                className="w-full py-2.5 rounded-xl font-bold text-sm transition-all hover:scale-105 active:scale-95"
+                style={{
+                  background: copied ? 'rgba(49,255,140,0.2)' : 'rgba(255,255,255,0.07)',
+                  border: '1px solid var(--line-strong)',
+                  color: copied ? 'var(--accent)' : 'var(--foreground)',
+                }}
+              >
+                {copied ? '✓ Скопировано' : '📋 Копировать ссылку'}
+              </button>
+              <p className="text-center text-xs text-[var(--muted)] font-mono">Код: {roomCode}</p>
+            </div>
           </div>
-          <p className="text-center text-xs text-[var(--muted)] mt-2 font-mono">{roomCode}</p>
         </div>
 
         {/* Players list */}

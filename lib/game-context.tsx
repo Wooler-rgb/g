@@ -140,10 +140,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     [fullPriceMap, priceSnapshot],
   );
 
+  const COMMISSION = 0.005; // 0.5%
+
   const buyStock = useCallback(
     (ticker: string, shares: number, price: number): boolean => {
       const cost = shares * price;
-      if (state.budget < cost || shares <= 0) return false;
+      const commission = Math.ceil(cost * COMMISSION);
+      const total = cost + commission;
+      if (state.budget < total || shares <= 0) return false;
       setState((prev) => {
         const existing = prev.portfolio[ticker];
         const newShares = (existing?.shares ?? 0) + shares;
@@ -152,7 +156,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
           : price;
         return {
           ...prev,
-          budget: prev.budget - cost,
+          budget: prev.budget - total,
           portfolio: {
             ...prev.portfolio,
             [ticker]: { ticker, shares: newShares, avgBuyPrice: newAvg },
@@ -169,6 +173,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const holding = state.portfolio[ticker];
       if (!holding || holding.shares < shares || shares <= 0) return false;
       setState((prev) => {
+        const proceeds = shares * price;
+        const commission = Math.ceil(proceeds * COMMISSION);
         const newShares = prev.portfolio[ticker].shares - shares;
         const newPortfolio = { ...prev.portfolio };
         if (newShares <= 0) {
@@ -176,7 +182,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         } else {
           newPortfolio[ticker] = { ...newPortfolio[ticker], shares: newShares };
         }
-        return { ...prev, budget: prev.budget + shares * price, portfolio: newPortfolio };
+        return { ...prev, budget: prev.budget + proceeds - commission, portfolio: newPortfolio };
       });
       return true;
     },

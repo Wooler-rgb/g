@@ -509,6 +509,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [tf, setTf] = useState<Timeframe>('month');
   const [candles, setCandles] = useState<ApiCandle[]>([]);
   const [candlesLoading, setCandlesLoading] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'chart' | 'trade'>('chart');
 
   const crisis = state.crisis;
   const isRealtime = state.mode === 'realtime';
@@ -592,9 +593,13 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const isUp = change >= 0;
   const holding = state.portfolio[ticker];
 
+  const COMMISSION_RATE = 0.005;
   const sharesInput = parseInt(amount) || 0;
   const totalCost = sharesInput * price;
-  const canBuy = sharesInput > 0 && totalCost <= state.budget;
+  const commission = Math.ceil(totalCost * COMMISSION_RATE);
+  const totalWithCommission = totalCost + commission;
+  const netProceeds = totalCost - commission;
+  const canBuy = sharesInput > 0 && totalWithCommission <= state.budget;
   const canSell = sharesInput > 0 && (holding?.shares ?? 0) >= sharesInput;
 
   // ROI calculation
@@ -625,7 +630,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     }
   }
 
-  const maxBuyShares = price > 0 ? Math.floor(state.budget / price) : 0;
+  const maxBuyShares = price > 0 ? Math.floor(state.budget / (price * 1.005)) : 0;
   const maxSellShares = holding?.shares ?? 0;
 
   // ---- Build extended price history for chart ----
@@ -705,9 +710,26 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_320px] gap-0 h-[calc(100vh-57px)]">
+      {/* Mobile tab bar */}
+      <div className="flex sm:hidden border-b border-[var(--line)]" style={{ background: 'rgba(4,17,13,0.95)' }}>
+        {(['chart', 'trade'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setMobileTab(tab)}
+            className="flex-1 py-2.5 text-sm font-bold transition-colors"
+            style={{
+              color: mobileTab === tab ? 'var(--accent)' : 'var(--muted)',
+              borderBottom: mobileTab === tab ? '2px solid var(--accent)' : '2px solid transparent',
+            }}
+          >
+            {tab === 'chart' ? '📊 График' : '💰 Торги'}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_320px] gap-0 h-[calc(100vh-98px)] sm:h-[calc(100vh-57px)]">
         {/* LEFT */}
-        <div className="overflow-y-auto p-4 space-y-4">
+        <div className={`overflow-y-auto p-4 space-y-4 ${mobileTab === 'trade' ? 'hidden sm:block' : ''}`}>
           {/* Chart */}
           <div className="glass-panel rounded-2xl p-4 rise-in">
             <div className="flex items-center justify-between mb-3">
@@ -837,7 +859,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
 
         {/* RIGHT: BUY/SELL */}
         <div
-          className="border-l border-[var(--line)] overflow-y-auto flex flex-col"
+          className={`border-l border-[var(--line)] overflow-y-auto flex flex-col ${mobileTab === 'chart' ? 'hidden sm:flex' : ''}`}
           style={{ background: 'rgba(4,17,13,0.95)' }}
         >
           <div className="p-4 flex-1">
@@ -899,10 +921,14 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                   <span className="text-[var(--muted)]">Количество</span>
                   <span>{sharesInput.toLocaleString('ru-RU')} шт</span>
                 </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[var(--muted)]">Комиссия (0.5%)</span>
+                  <span className="text-[var(--warning)]">−{formatMoney(commission)}</span>
+                </div>
                 <div className="flex justify-between text-sm font-bold border-t border-[var(--line)] pt-2">
                   <span className="text-[var(--muted)]">Итого</span>
                   <span style={{ color: orderType === 'buy' ? 'var(--danger)' : 'var(--accent)' }}>
-                    {formatMoney(totalCost)}
+                    {formatMoney(orderType === 'buy' ? totalWithCommission : netProceeds)}
                   </span>
                 </div>
               </div>

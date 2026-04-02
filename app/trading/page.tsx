@@ -130,10 +130,10 @@ function PortfolioModal({ onClose, year, month, prevYear, prevMonth }: {
   const totalPnl = totalCurrent - totalInvested;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div
-        className="glass-panel rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden scale-in relative z-10"
+        className="glass-panel rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-hidden scale-in relative z-10 mx-3 sm:mx-0"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5 border-b border-[var(--line)] flex items-center justify-between">
@@ -294,24 +294,24 @@ function OFZPanel({
           </button>
         ))}
       </div>
+      <input
+        type="number"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        placeholder="Сумма ₽"
+        className="w-full px-2 py-1.5 rounded-lg text-xs text-[var(--foreground)] placeholder-[var(--muted)] outline-none mb-2"
+        style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line-strong)' }}
+      />
       <div className="flex gap-2">
-        <input
-          type="number"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="Сумма ₽"
-          className="flex-1 px-2 py-1.5 rounded-lg text-xs text-[var(--foreground)] placeholder-[var(--muted)] outline-none"
-          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid var(--line-strong)' }}
-        />
         <button onClick={handleBuy}
-          className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105"
+          className="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105"
           style={{ background: 'rgba(255,198,38,0.15)', border: '1px solid rgba(255,198,38,0.3)', color: 'var(--warning)' }}>
-          Купить
+          Купить ОФЗ
         </button>
         <button onClick={handleSell} disabled={bondValue <= 0}
-          className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 disabled:opacity-40"
+          className="flex-1 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 disabled:opacity-40"
           style={{ background: 'rgba(255,120,135,0.1)', border: '1px solid rgba(255,120,135,0.25)', color: 'var(--danger)' }}>
-          Продать
+          Продать ОФЗ
         </button>
       </div>
     </div>
@@ -736,9 +736,9 @@ function RealtimeTradingPage() {
     <div className="min-h-screen app-grid flex flex-col" style={{ maxHeight: '100vh', overflow: 'hidden' }}>
       {/* Portfolio modal */}
       {showPortfolio && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setShowPortfolio(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4" onClick={() => setShowPortfolio(false)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="glass-panel rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden scale-in relative z-10" onClick={(e) => e.stopPropagation()}>
+          <div className="glass-panel rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-hidden scale-in relative z-10 mx-3 sm:mx-0" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-[var(--line)] flex items-center justify-between">
               <h2 className="font-black text-xl">Мой портфель</h2>
               <button onClick={() => setShowPortfolio(false)} className="text-[var(--muted)] hover:text-[var(--foreground)] text-xl">✕</button>
@@ -1462,13 +1462,17 @@ function HistoricalTradingPage() {
         </div>
 
         {/* CENTER: BUDGET + PORTFOLIO SUMMARY */}
-        <div className={`flex-col overflow-hidden p-4 gap-4 pb-20 md:pb-4 ${mobileTab === 'capital' ? 'flex' : 'hidden'} md:flex`} style={{ background: 'rgba(4,17,13,0.6)' }}>
+        <div className={`flex-col overflow-y-auto p-4 gap-4 pb-20 md:pb-4 ${mobileTab === 'capital' ? 'flex' : 'hidden'} md:flex`} style={{ background: 'rgba(4,17,13,0.6)' }}>
           <BudgetChart budget={state.budget} invested={portfolioValue} bonds={getBondValue()} total={totalNetWorth} sharpe={getSharpeRatio()} />
 
           {/* INFLATION WIDGET */}
           {(() => {
-            const startYear = crisis.years[0].year;
-            const inflTarget = inflationAdjusted(1_000_000, startYear, currentYear, currentMonth);
+            const startStep = crisis.years[0];
+            const startYear = startStep.year;
+            // Normalize: inflation target = 1M at step 0, grows from there
+            const inflBase = inflationAdjusted(1, startYear, startStep.year, startStep.month);
+            const inflCurrent = inflationAdjusted(1, startYear, currentYear, currentMonth);
+            const inflTarget = 1_000_000 * (inflCurrent / inflBase);
             const beating = totalNetWorth >= inflTarget;
             const diffPct = ((totalNetWorth - inflTarget) / inflTarget) * 100;
             return (
@@ -1528,7 +1532,7 @@ function HistoricalTradingPage() {
           })()}
 
           {/* Holdings summary */}
-          <div className="glass-panel rounded-2xl p-4 flex-1 overflow-hidden flex flex-col">
+          <div className="glass-panel rounded-2xl p-4 overflow-hidden flex flex-col" style={{ minHeight: '220px' }}>
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-bold tracking-wider text-[var(--muted)] uppercase">Мои позиции</div>
               <button

@@ -36,6 +36,15 @@
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 
+/* Hide scrollbars everywhere while keeping scroll functionality */
+* {
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE / Edge legacy */
+}
+*::-webkit-scrollbar {
+  display: none;               /* Chrome / Safari / WebKit */
+}
+
 body {
   margin: 0;
   min-height: 100vh;
