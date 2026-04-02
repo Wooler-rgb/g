@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --input-type=module)",
+      "Bash(2>&1)",
+      "Bash(where python:*)",
+      "Bash(where python3:*)",
+      "Bash(where py:*)",
+      "Bash(py --version)",
+      "WebFetch(domain:smart-lab.ru)",
+      "Bash(curl -s \"https://smart-lab.ru/news/\")",
+      "Bash(grep -n \"^export\\\\|^const \\\\|^function \\\\|^// ===\\\\|^  '//\" lib/game-data.ts)",
+      "Bash(pg_dump --version)",
+      "Bash(where pg_dump)",
+      "Read(//c/Program Files/PostgreSQL/**)",
+      "Read(//c/Program Files \\(x86\\)/**)",
+      "Bash(PGPASSWORD=\"Abra1234\" \"/c/Program Files/PostgreSQL/17/bin/pg_dump\" --version)",
+      "Bash('/c/Program Files/PostgreSQL/17/bin/pg_dump' --host=localhost --port=5432 --username=postgres --dbname=fintech --format=plain --inserts --column-inserts --no-password '--file=c:/Users/Mark/OneDrive/Рабочий стол/fintech/fintech2026-GitPushForce/fintech_dump.sql')"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\Mark\\OneDrive\\Рабочий стол\\fintech\\fintech2026-GitPushForce\\app\\api\\rooms\\[code]",
+      "C:\\Users\\Mark"
+    ]
+  }
+}

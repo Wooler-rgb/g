@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Пользователи ───────────────────────────────────────────────
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  createdAt DateTime @default(now())
+
+  stonkUsers  StonkUser[]
+  leaderboard Leaderboard[]
+}
+
+// ─── Игровые комнаты ─────────────────────────────────────────────
+model Room {
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  scenarioId       String
+  status           String   @default("waiting") // waiting | active | finished
+  hostUsername     String   @default("")
+  currentStepIndex Int      @default(0)
+  readyJson        String   @default("[]")
+  createdAt        DateTime @default(now())
+
+  scenario    Scenario    @relation(fields: [scenarioId], references: [id])
+  stonkUsers  StonkUser[]
+  leaderboard Leaderboard[]
+}
+
+// ─── Состояние игрока в комнате ───────────────────────────────────
+model StonkUser {
+  id            Int     @id @default(autoincrement())
+  userId        Int
+  roomId        Int?
+  budget        Float   @default(1000000)
+  portfolioJson String  @default("{}")
+  finalNetWorth Float?
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room Room? @relation(fields: [roomId], references: [id], onDelete: SetNull)
+}
+
+// ─── Таблица лидеров ─────────────────────────────────────────────
+model Leaderboard {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  roomId    Int?
+  netWorth  Float
+  startBudget Float  @default(1000000)
+  rank      Int?
+  createdAt DateTime @default(now())
+
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  room Room? @relation(fields: [roomId], references: [id], onDelete: SetNull)
+}
+
+// ─── Сценарии (кризисы) ──────────────────────────────────────────
+model Scenario {
+  id          String @id   // 2014_ruble | 2020_covid | 2022_feb | 2023_rate
+  name        String
+  description String
+  emoji       String
+  color       String
+  parserKey   String
+  periodLabel String
+
+  rooms Room[]
+  news  News[]
+  steps ScenarioStep[]
+}
+
+// ─── Шаги сценария (месяцы) ──────────────────────────────────────
+model ScenarioStep {
+  id               Int    @id @default(autoincrement())
+  scenarioId       String
+  stepIndex        Int
+  year             Int
+  month            Int
+  label            String
+  eventName        String?
+  eventDescription String?
+  eventColor       String?
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@unique([scenarioId, stepIndex])
+}
+
+// ─── Новости шага ────────────────────────────────────────────────
+model News {
+  id         Int    @id @default(autoincrement())
+  scenarioId String
+  stepIndex  Int
+  title      String
+  body       String
+  impact     String  // positive | negative | neutral
+  sector     String?
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+}
+
+// ─── Акции (тикеры MOEX) ─────────────────────────────────────────
+model Stonk {
+  id     Int    @id @default(autoincrement())
+  ticker String @unique
+  name   String
+  sector String
+  color  String
+
+  prices Price[]
+}
+
+// ─── Дивиденды (из парсера) ──────────────────────────────────────
+model Dividend {
+  id          Int      @id @default(autoincrement())
+  ticker      String
+  perShare    Float    @map("per_share")
+  paymentDate DateTime @map("payment_date")
+  year        Int
+  month       Int
+  currency    String   @default("RUB")
+  source      String   @default("moex")
+
+  @@unique([ticker, paymentDate])
+  @@index([ticker, year, month])
+  @@map("dividend")
+}
+
+// ─── Спарсенные новости (внешние источники) ──────────────────────
+model MarketNews {
+  id          Int      @id @default(autoincrement())
+  source      String   // moex_sitenews | cbr | smartlab
+  title       String
+  body        String?
+  url         String?  @unique
+  publishedAt DateTime @map("published_at")
+  year        Int
+  month       Int
+  tickers     String?  // comma-separated, e.g. "SBER,GAZP"
+  impact      String?  // positive | negative | neutral
+  category    String?  // rate | dividend | earnings | sanctions | general
+
+  @@index([year, month])
+  @@index([source])
+  @@map("market_news")
+}
+
+// ─── Realtime цены (кэш MOEX ISS) ───────────────────────────────
+model RealtimePrice {
+  id        Int      @id @default(autoincrement())
+  ticker    String   @unique
+  price     Float
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("realtime_price")
+}
+
+// ─── Исторические цены (месячные) ────────────────────────────────
+model Price {
+  id      Int   @id @default(autoincrement())
+  stonkId Int
+  year    Int
+  month   Int
+  price   Float
+
+  stonk Stonk @relation(fields: [stonkId], references: [id], onDelete: Cascade)
+
+  @@unique([stonkId, year, month])
+  @@index([stonkId])
+  @@index([year, month])
+}

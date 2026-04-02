@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(mkdir -p \"c:\\\\Users\\\\Mark\\\\OneDrive\\\\Рабочий стол\\\\fintech\\\\fintech2026-GitPushForce\\\\app\\\\api\\\\stocks\\\\[ticker]\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\Mark\\\\OneDrive\\\\Рабочий стол\\\\fintech\\\\fintech2026-GitPushForce\\\\app\\\\api\\\\crises\\\\[id]\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\Mark\\\\OneDrive\\\\Рабочий стол\\\\fintech\\\\fintech2026-GitPushForce\\\\app\\\\api\\\\rooms\\\\[code]\\\\join\")",
+      "Bash(npx prisma:*)",
+      "Bash(node -e ':*)",
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:iss.moex.com)",
+      "WebFetch(domain:www.cbr.ru)",
+      "WebFetch(domain:lenta.ru)",
+      "WebFetch(domain:cbr.ru)"
+    ]
+  }
+}
