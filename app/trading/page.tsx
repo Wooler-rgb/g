@@ -982,8 +982,7 @@ function RealtimeTradingPage() {
 
 // ============ NEWS CARD ============
 type NewsArticle = {
-  id: number;
-  url: string;
+  url: string | null;
   title: string;
   rating: number;
   commentsCount: number;
@@ -992,44 +991,46 @@ type NewsArticle = {
 };
 
 function NewsCard({ item, index }: { item: NewsArticle; index: number }) {
-  return (
-    <a
-      href={item.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block rounded-xl p-3 rise-in transition-colors hover:bg-white/5"
-      style={{
-        animationDelay: `${index * 0.05}s`,
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid var(--line)',
-        textDecoration: 'none',
-      }}
-    >
-      <div className="flex items-start gap-2">
-        <span className="text-sm flex-shrink-0 mt-0.5">📰</span>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold leading-tight text-[var(--foreground)] line-clamp-3">
-            {item.title}
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] text-[var(--muted)]">
-              {new Date(item.newsDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+  const inner = (
+    <div className="flex items-start gap-2">
+      <span className="text-sm flex-shrink-0 mt-0.5">📰</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-semibold leading-tight text-[var(--foreground)] line-clamp-3">
+          {item.title}
+        </div>
+        <div className="mt-1.5 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] text-[var(--muted)]">
+            {new Date(item.newsDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+          </span>
+          {item.rating !== 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(49,255,140,0.1)', color: 'var(--accent)' }}>
+              ▲ {item.rating}
             </span>
-            {item.rating !== 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(49,255,140,0.1)', color: 'var(--accent)' }}>
-                ▲ {item.rating}
-              </span>
-            )}
-            {item.commentsCount > 0 && (
-              <span className="text-[10px] text-[var(--muted)]">
-                💬 {item.commentsCount}
-              </span>
-            )}
-          </div>
+          )}
+          {item.commentsCount > 0 && (
+            <span className="text-[10px] text-[var(--muted)]">
+              💬 {item.commentsCount}
+            </span>
+          )}
         </div>
       </div>
-    </a>
+    </div>
   );
+  const cardStyle = {
+    animationDelay: `${index * 0.05}s`,
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid var(--line)',
+    textDecoration: 'none' as const,
+  };
+  if (item.url) {
+    return (
+      <a href={item.url} target="_blank" rel="noopener noreferrer"
+        className="block rounded-xl p-3 rise-in transition-colors hover:bg-white/5" style={cardStyle}>
+        {inner}
+      </a>
+    );
+  }
+  return <div className="block rounded-xl p-3 rise-in" style={cardStyle}>{inner}</div>;
 }
 
 // ============ MAIN TRADING PAGE (historical) ============
@@ -1709,7 +1710,7 @@ function HistoricalTradingPage() {
                   </div>
                 )}
                 {searchResults && searchResults.map((item, i) => (
-                  <NewsCard key={item.id} item={item} index={i} />
+                  <NewsCard key={item.url ?? item.title} item={item} index={i} />
                 ))}
                 {searchResults && searchResults.length < searchTotal && (
                   <button
@@ -1731,7 +1732,7 @@ function HistoricalTradingPage() {
                   <div className="text-center text-xs text-[var(--muted)] py-8">Нет новостей за этот период</div>
                 )}
                 {backendNews && backendNews.map((item, i) => (
-                  <NewsCard key={item.id} item={item} index={i} />
+                  <NewsCard key={item.url ?? item.title} item={item} index={i} />
                 ))}
                 {backendNews && backendNews.length < newsTotal && (
                   <button

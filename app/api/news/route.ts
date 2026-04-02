@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
           orderBy: [{ rating: 'desc' }, { newsDate: 'desc' }],
           skip,
           take: PAGE_SIZE,
-          select: { id: true, url: true, title: true, rating: true, commentsCount: true, newsDate: true, yearMonth: true },
+          select: { url: true, title: true, rating: true, commentsCount: true, newsDate: true, yearMonth: true },
         }),
       ]);
       return Response.json({ news: items, total, page, pageSize: PAGE_SIZE, hasMore: skip + PAGE_SIZE < total });

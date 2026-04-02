@@ -103,8 +103,8 @@ model ParsedDate {
 
 // ─── Новости (реальные, из парсера) ──────────────────────────────
 model News {
-  id            Int      @id @default(autoincrement())
-  url           String   @unique
+  id            BigInt   @id @default(autoincrement())
+  url           String?
   title         String
   rating        Int      @default(0)
   commentsCount Int      @default(0) @map("comments_count")
