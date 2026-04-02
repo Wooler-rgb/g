@@ -7,7 +7,7 @@ const ALLOWED_ORIGINS = [
   'https://sibinvest.vercel.app',
 ];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const origin = request.headers.get('origin') ?? '';
   const isAllowed =
     ALLOWED_ORIGINS.includes(origin) ||

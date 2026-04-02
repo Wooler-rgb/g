@@ -15,7 +15,9 @@
       "Read(//c/Program Files/PostgreSQL/**)",
       "Read(//c/Program Files \\(x86\\)/**)",
       "Bash(PGPASSWORD=\"Abra1234\" \"/c/Program Files/PostgreSQL/17/bin/pg_dump\" --version)",
-      "Bash('/c/Program Files/PostgreSQL/17/bin/pg_dump' --host=localhost --port=5432 --username=postgres --dbname=fintech --format=plain --inserts --column-inserts --no-password '--file=c:/Users/Mark/OneDrive/Рабочий стол/fintech/fintech2026-GitPushForce/fintech_dump.sql')"
+      "Bash('/c/Program Files/PostgreSQL/17/bin/pg_dump' --host=localhost --port=5432 --username=postgres --dbname=fintech --format=plain --inserts --column-inserts --no-password '--file=c:/Users/Mark/OneDrive/Рабочий стол/fintech/fintech2026-GitPushForce/fintech_dump.sql')",
+      "Bash(cp \"c:\\\\Users\\\\Mark\\\\OneDrive\\\\Рабочий стол\\\\fintech\\\\fintech2026-GitPushForce\\\\middleware.ts\" \"c:\\\\Users\\\\Mark\\\\OneDrive\\\\Рабочий стол\\\\fintech\\\\fintech2026-GitPushForce\\\\proxy.ts\")",
+      "Bash(rm \"c:\\\\Users\\\\Mark\\\\OneDrive\\\\Рабочий стол\\\\fintech\\\\fintech2026-GitPushForce\\\\middleware.ts\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Mark\\OneDrive\\Рабочий стол\\fintech\\fintech2026-GitPushForce\\app\\api\\rooms\\[code]",
