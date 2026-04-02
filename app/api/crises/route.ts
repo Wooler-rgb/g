@@ -6,7 +6,6 @@ export async function GET() {
     const scenarios = await prisma.scenario.findMany({
       include: {
         steps: { orderBy: { stepIndex: 'asc' } },
-        news: true,
       },
     });
 
@@ -26,14 +25,7 @@ export async function GET() {
           eventName: step.eventName ?? undefined,
           eventDescription: step.eventDescription ?? undefined,
           eventColor: step.eventColor ?? undefined,
-          news: sc.news
-            .filter((n) => n.stepIndex === step.stepIndex)
-            .map((n) => ({
-              title: n.title,
-              body: n.body,
-              impact: n.impact as 'positive' | 'negative' | 'neutral',
-              sector: n.sector ?? undefined,
-            })),
+          news: [] as { title: string; body: string; impact: 'positive' | 'negative' | 'neutral'; sector?: string }[],
         })),
       };
       // Extend to April 2026 if DB was seeded before the timeline extension (idempotent)

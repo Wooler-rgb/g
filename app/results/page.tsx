@@ -321,13 +321,13 @@ export default function ResultsPage() {
             <div className="p-5 border-b border-[var(--line)]">
               <h2 className="font-black text-xl">Итоговый портфель</h2>
             </div>
-            <div className="p-4">
-              <table className="w-full text-sm">
+            <div className="p-4 overflow-x-auto">
+              <table className="w-full text-sm min-w-[320px]">
                 <thead>
                   <tr className="text-[var(--muted)] text-xs border-b border-[var(--line)]">
                     <th className="text-left pb-3">Акция</th>
-                    <th className="text-right pb-3">Кол-во</th>
-                    <th className="text-right pb-3">Цена</th>
+                    <th className="text-right pb-3 hidden sm:table-cell">Кол-во</th>
+                    <th className="text-right pb-3 hidden sm:table-cell">Цена</th>
                     <th className="text-right pb-3">Стоимость</th>
                     <th className="text-right pb-3">P&L</th>
                   </tr>
@@ -345,12 +345,12 @@ export default function ResultsPage() {
                           </div>
                           <div>
                             <div className="font-bold">{h.ticker}</div>
-                            <div className="text-xs text-[var(--muted)]">{h.stock?.name}</div>
+                            <div className="text-xs text-[var(--muted)] hidden sm:block">{h.stock?.name}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="py-3 text-right font-mono">{h.shares.toLocaleString('ru-RU')}</td>
-                      <td className="py-3 text-right font-mono">{formatMoney(h.curPrice)}</td>
+                      <td className="py-3 text-right font-mono hidden sm:table-cell">{h.shares.toLocaleString('ru-RU')}</td>
+                      <td className="py-3 text-right font-mono hidden sm:table-cell">{formatMoney(h.curPrice)}</td>
                       <td className="py-3 text-right font-bold">{formatMoney(h.value)}</td>
                       <td className="py-3 text-right font-bold" style={{ color: h.pnl >= 0 ? 'var(--accent)' : 'var(--danger)' }}>
                         {h.pnl >= 0 ? '+' : ''}{formatMoney(h.pnl)}
@@ -358,12 +358,14 @@ export default function ResultsPage() {
                     </tr>
                   ))}
                   <tr className="font-black">
-                    <td className="pt-3 text-[var(--muted)]" colSpan={3}>Свободные средства</td>
+                    <td className="pt-3 text-[var(--muted)]" colSpan={1}>Свободные средства</td>
+                    <td className="pt-3 hidden sm:table-cell" colSpan={2} />
                     <td className="pt-3 text-right">{formatMoney(state.budget)}</td>
                     <td />
                   </tr>
                   <tr className="font-black text-lg border-t border-[var(--line-strong)]">
-                    <td className="pt-3 text-[var(--accent)]" colSpan={3}>ИТОГО</td>
+                    <td className="pt-3 text-[var(--accent)]" colSpan={1}>ИТОГО</td>
+                    <td className="pt-3 hidden sm:table-cell" colSpan={2} />
                     <td className="pt-3 text-right text-[var(--accent)]">{formatMoney(myWorth)}</td>
                     <td className="pt-3 text-right" style={{ color: isProfit ? 'var(--accent)' : 'var(--danger)' }}>
                       {isProfit ? '+' : ''}{pnlPct.toFixed(1)}%

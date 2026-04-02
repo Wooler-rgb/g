@@ -71,19 +71,6 @@ export async function register() {
             eventColor: step.eventColor ?? null,
           },
         });
-
-        for (const n of step.news) {
-          await prisma.news.create({
-            data: {
-              scenarioId: crisis.id,
-              stepIndex: i,
-              title: n.title,
-              body: n.body,
-              impact: n.impact,
-              sector: n.sector ?? null,
-            },
-          }).catch(() => {}); // ignore duplicate-ish entries
-        }
       }
     }
 

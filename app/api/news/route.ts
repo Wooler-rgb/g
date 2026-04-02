@@ -1,109 +1,63 @@
 import { prisma } from '@/lib/prisma';
 import type { NextRequest } from 'next/server';
 
-// GET /api/news?scenarioId=2014_ruble&year=2014&month=9
-// GET /api/news?scenarioId=2014_ruble&search=нефть  — keyword search across all scenario news
+const PAGE_SIZE = 20;
+
+// GET /api/news?year=2024&month=3&page=1
+// GET /api/news?search=нефть&page=1
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
-  const scenarioId = searchParams.get('scenarioId');
   const search = searchParams.get('search')?.trim();
-
-  if (!scenarioId) {
-    return Response.json({ error: 'scenarioId required' }, { status: 400 });
-  }
+  const page   = Math.max(1, Number(searchParams.get('page') ?? '1'));
+  const skip   = (page - 1) * PAGE_SIZE;
 
   try {
     // ── SEARCH MODE ──────────────────────────────────────────────────────────
     if (search) {
-      const scenarioNews = await prisma.news.findMany({
-        where: {
-          scenarioId,
-          OR: [
-            { title: { contains: search, mode: 'insensitive' } },
-            { body:  { contains: search, mode: 'insensitive' } },
-            { sector:{ contains: search, mode: 'insensitive' } },
-          ],
-        },
-        orderBy: { id: 'asc' },
-        take: 30,
-        select: { title: true, body: true, impact: true, sector: true },
-      });
+      const year  = Number(searchParams.get('year'));
+      const month = Number(searchParams.get('month'));
+      const yearMonth = year && month ? `${year}-${String(month).padStart(2, '0')}` : undefined;
 
-      const marketNews = await prisma.marketNews.findMany({
-        where: {
-          OR: [
-            { title:   { contains: search, mode: 'insensitive' } },
-            { body:    { contains: search, mode: 'insensitive' } },
-            { tickers: { contains: search, mode: 'insensitive' } },
-          ],
-        },
-        orderBy: { publishedAt: 'desc' },
-        take: 20,
-        select: { title: true, body: true, impact: true, tickers: true, year: true, month: true },
-      }).catch(() => []);
-
-      const scenarioTitles = new Set(scenarioNews.map((n) => n.title.toLowerCase()));
-      const results = [
-        ...scenarioNews.map((n) => ({
-          title: n.title, body: n.body, impact: n.impact,
-          sector: n.sector ?? undefined,
-        })),
-        ...marketNews
-          .filter((n) => !scenarioTitles.has(n.title.toLowerCase()))
-          .map((n) => ({
-            title: n.title, body: n.body ?? '', impact: n.impact ?? 'neutral',
-            sector: n.tickers ?? undefined,
-            year: n.year, month: n.month,
-          })),
-      ];
-
-      return Response.json({ news: results, fromSearch: true });
+      const where = {
+        title: { contains: search, mode: 'insensitive' as const },
+        ...(yearMonth ? { yearMonth } : {}),
+      };
+      const [total, items] = await Promise.all([
+        prisma.news.count({ where }),
+        prisma.news.findMany({
+          where,
+          orderBy: [{ rating: 'desc' }, { newsDate: 'desc' }],
+          skip,
+          take: PAGE_SIZE,
+          select: { id: true, url: true, title: true, rating: true, commentsCount: true, newsDate: true, yearMonth: true },
+        }),
+      ]);
+      return Response.json({ news: items, total, page, pageSize: PAGE_SIZE, hasMore: skip + PAGE_SIZE < total });
     }
 
-    // ── STEP MODE (current month news) ───────────────────────────────────────
+    // ── STEP MODE ────────────────────────────────────────────────────────────
     const year  = Number(searchParams.get('year'));
     const month = Number(searchParams.get('month'));
 
     if (!year || !month) {
-      return Response.json({ error: 'year and month required when not searching' }, { status: 400 });
+      return Response.json({ error: 'year and month required' }, { status: 400 });
     }
 
-    // 1. Scenario-specific news from DB (curated, always shown first)
-    const step = await prisma.scenarioStep.findFirst({
-      where: { scenarioId, year, month },
-    });
+    const yearMonth = `${year}-${String(month).padStart(2, '0')}`;
+    const where = { yearMonth };
 
-    const scenarioNews = step
-      ? await prisma.news.findMany({
-          where: { scenarioId, stepIndex: step.stepIndex },
-          orderBy: { id: 'asc' },
-          select: { title: true, body: true, impact: true, sector: true },
-        })
-      : [];
+    const [total, items] = await Promise.all([
+      prisma.news.count({ where }),
+      prisma.news.findMany({
+        where,
+        orderBy: [{ rating: 'desc' }, { newsDate: 'desc' }],
+        skip,
+        take: PAGE_SIZE,
+        select: { id: true, url: true, title: true, rating: true, commentsCount: true, newsDate: true, yearMonth: true },
+      }),
+    ]);
 
-    // 2. Scraped market news for this month (from Python parser)
-    const marketNews = await prisma.marketNews.findMany({
-      where: { year, month },
-      orderBy: { publishedAt: 'desc' },
-      take: 8,
-      select: { title: true, body: true, impact: true, tickers: true },
-    }).catch(() => []);
-
-    // Merge: scenario news first, then market news (no duplicates by title)
-    const scenarioTitles = new Set(scenarioNews.map((n) => n.title.toLowerCase()));
-    const merged = [
-      ...scenarioNews.map((n) => ({
-        title: n.title, body: n.body, impact: n.impact, sector: n.sector ?? undefined,
-      })),
-      ...marketNews
-        .filter((n) => !scenarioTitles.has(n.title.toLowerCase()))
-        .map((n) => ({
-          title: n.title, body: n.body ?? '', impact: n.impact ?? 'neutral',
-          sector: n.tickers ?? undefined,
-        })),
-    ];
-
-    return Response.json({ news: merged, fromDb: merged.length > 0 });
+    return Response.json({ news: items, total, page, pageSize: PAGE_SIZE, hasMore: skip + PAGE_SIZE < total });
   } catch (e) {
     console.error('[GET /api/news]', e);
     return Response.json({ error: 'Ошибка сервера' }, { status: 500 });

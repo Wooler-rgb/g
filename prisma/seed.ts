@@ -403,18 +403,7 @@ async function main() {
         },
       });
 
-      for (const n of step.news) {
-        await prisma.news.create({
-          data: {
-            scenarioId: crisis.id,
-            stepIndex: i,
-            title: n.title,
-            body: n.body,
-            impact: n.impact,
-            sector: n.sector ?? null,
-          },
-        });
-      }
+      // News are now stored by year+month, not by scenario — seed separately if needed
     }
     console.log(`     ✓ ${crisis.id} — ${crisis.years.length} шагов`);
   }

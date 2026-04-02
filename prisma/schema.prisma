@@ -71,7 +71,6 @@ model Scenario {
   periodLabel String
 
   rooms Room[]
-  news  News[]
   steps ScenarioStep[]
 }
 
@@ -92,17 +91,29 @@ model ScenarioStep {
   @@unique([scenarioId, stepIndex])
 }
 
-// ─── Новости шага ────────────────────────────────────────────────
-model News {
-  id         Int    @id @default(autoincrement())
-  scenarioId String
-  stepIndex  Int
-  title      String
-  body       String
-  impact     String  // positive | negative | neutral
-  sector     String?
+// ─── Служебная таблица парсера (по каким датам парсились новости) ─
+model ParsedDate {
+  dateStr    String   @id @map("date_str")
+  pagesCount Int      @default(0) @map("pages_count")
+  newsCount  Int      @default(0) @map("news_count")
+  parsedAt   DateTime @default(now()) @map("parsed_at")
 
-  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  @@map("parsed_dates")
+}
+
+// ─── Новости (реальные, из парсера) ──────────────────────────────
+model News {
+  id            Int      @id @default(autoincrement())
+  url           String   @unique
+  title         String
+  rating        Int      @default(0)
+  commentsCount Int      @default(0) @map("comments_count")
+  newsDate      DateTime @map("news_date") @db.Date
+  yearMonth     String   @map("year_month")   // "YYYY-MM"
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([yearMonth])
+  @@map("News")
 }
 
 // ─── Акции (тикеры MOEX) ─────────────────────────────────────────

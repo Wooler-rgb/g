@@ -980,56 +980,55 @@ function RealtimeTradingPage() {
   );
 }
 
-// ============ NEWS CARD (shared between step news and search results) ============
-function NewsCard({
-  item,
-  index,
-  showDate,
-}: {
-  item: { title: string; body: string; impact: string; sector?: string; year?: number; month?: number };
-  index: number;
-  showDate?: boolean;
-}) {
+// ============ NEWS CARD ============
+type NewsArticle = {
+  id: number;
+  url: string;
+  title: string;
+  rating: number;
+  commentsCount: number;
+  newsDate: string;
+  yearMonth: string;
+};
+
+function NewsCard({ item, index }: { item: NewsArticle; index: number }) {
   return (
-    <div
-      className="rounded-xl p-3 rise-in"
+    <a
+      href={item.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="block rounded-xl p-3 rise-in transition-colors hover:bg-white/5"
       style={{
-        animationDelay: `${index * 0.07}s`,
+        animationDelay: `${index * 0.05}s`,
         background: 'rgba(255,255,255,0.03)',
-        border: `1px solid ${item.impact === 'positive' ? 'rgba(49,255,140,0.2)' : item.impact === 'negative' ? 'rgba(255,120,135,0.2)' : 'var(--line)'}`,
+        border: '1px solid var(--line)',
+        textDecoration: 'none',
       }}
     >
-      <div className="flex items-start gap-2 mb-1">
-        <span className="text-sm flex-shrink-0">
-          {item.impact === 'positive' ? '📈' : item.impact === 'negative' ? '📉' : '📰'}
-        </span>
-        <div
-          className="text-sm font-bold leading-tight"
-          style={{ color: item.impact === 'positive' ? 'var(--accent)' : item.impact === 'negative' ? 'var(--danger)' : 'var(--foreground)' }}
-        >
-          {item.title}
+      <div className="flex items-start gap-2">
+        <span className="text-sm flex-shrink-0 mt-0.5">📰</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold leading-tight text-[var(--foreground)] line-clamp-3">
+            {item.title}
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] text-[var(--muted)]">
+              {new Date(item.newsDate).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+            {item.rating !== 0 && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(49,255,140,0.1)', color: 'var(--accent)' }}>
+                ▲ {item.rating}
+              </span>
+            )}
+            {item.commentsCount > 0 && (
+              <span className="text-[10px] text-[var(--muted)]">
+                💬 {item.commentsCount}
+              </span>
+            )}
+          </div>
         </div>
       </div>
-      <p className="text-xs text-[var(--muted)] leading-relaxed pl-6">{item.body}</p>
-      <div className="mt-2 pl-6 flex flex-wrap gap-1.5">
-        {item.sector && (
-          <span
-            className="text-xs px-2 py-0.5 rounded-full"
-            style={{ background: 'rgba(53,217,255,0.1)', color: 'var(--accent-blue)', border: '1px solid rgba(53,217,255,0.2)' }}
-          >
-            {item.sector}
-          </span>
-        )}
-        {showDate && item.year && item.month && (
-          <span
-            className="text-xs px-2 py-0.5 rounded-full"
-            style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--line)' }}
-          >
-            {MONTHS_RU[item.month]} {item.year}
-          </span>
-        )}
-      </div>
-    </div>
+    </a>
   );
 }
 
@@ -1049,11 +1048,17 @@ function HistoricalTradingPage() {
   }, []);
   const [nextStepLabel, setNextStepLabel] = useState<string | null>(null);
   const [dividendToasts, setDividendToasts] = useState<{ ticker: string; amount: number; perShare: number; shares: number }[]>([]);
-  const [backendNews, setBackendNews] = useState<{ title: string; body: string; impact: string; sector?: string }[] | null>(null);
+  const [backendNews, setBackendNews] = useState<NewsArticle[] | null>(null);
+  const [newsTotal, setNewsTotal] = useState(0);
+  const [newsPage, setNewsPage] = useState(1);
+  const [newsLoading, setNewsLoading] = useState(false);
   const [newsSearch, setNewsSearch] = useState('');
-  const [searchResults, setSearchResults] = useState<{ title: string; body: string; impact: string; sector?: string; year?: number; month?: number }[] | null>(null);
+  const [searchResults, setSearchResults] = useState<NewsArticle[] | null>(null);
+  const [searchTotal, setSearchTotal] = useState(0);
+  const [searchPage, setSearchPage] = useState(1);
   const [searchLoading, setSearchLoading] = useState(false);
   const [filter, setFilter] = useState('');
+  const [mobileTab, setMobileTab] = useState<'stocks' | 'capital' | 'news'>('capital');
   // Multi mode: room polling state
   const [roomHostUsername, setRoomHostUsername] = useState<string>('');
   const [readySet, setReadySet] = useState<string[]>([]);
@@ -1069,29 +1074,53 @@ function HistoricalTradingPage() {
   const isHost = isMulti && (roomHostUsername ? state.username === roomHostUsername : true);
 
   const step = crisis.years[state.currentYearIndex];
-  // Fetch news from backend when step changes — only DB, no local fallback
+  // Fetch news when step or page changes
   useEffect(() => {
-    setBackendNews(null);
-    if (!crisis?.id || !step) return;
-    fetch(`/api/news?scenarioId=${crisis.id}&year=${step.year}&month=${step.month}`)
+    if (!step) return;
+    if (newsPage === 1) setBackendNews(null);
+    setNewsLoading(true);
+    fetch(`/api/news?year=${step.year}&month=${step.month}&page=${newsPage}`)
       .then((r) => r.ok ? r.json() : null)
-      .then((data) => setBackendNews(data?.news ?? []))
-      .catch(() => setBackendNews([]));
-  }, [crisis?.id, step?.year, step?.month]);
+      .then((data) => {
+        if (!data) return;
+        setNewsTotal(data.total ?? 0);
+        setBackendNews((prev) => newsPage === 1 ? (data.news ?? []) : [...(prev ?? []), ...(data.news ?? [])]);
+      })
+      .catch(() => { if (newsPage === 1) setBackendNews([]); })
+      .finally(() => setNewsLoading(false));
+  }, [step?.year, step?.month, newsPage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Debounced keyword search across all scenario news
+  // Reset page when step changes
   useEffect(() => {
-    if (!newsSearch.trim()) { setSearchResults(null); return; }
+    setNewsPage(1);
+    setNewsSearch('');
+    setSearchResults(null);
+  }, [step?.year, step?.month]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Debounced keyword search — scoped to current step's month
+  useEffect(() => {
+    if (!newsSearch.trim()) { setSearchResults(null); setSearchPage(1); return; }
     const t = setTimeout(() => {
       setSearchLoading(true);
-      fetch(`/api/news?scenarioId=${crisis.id}&search=${encodeURIComponent(newsSearch.trim())}`)
+      setSearchPage(1);
+      fetch(`/api/news?search=${encodeURIComponent(newsSearch.trim())}&year=${step.year}&month=${step.month}&page=1`)
         .then((r) => r.ok ? r.json() : null)
-        .then((data) => setSearchResults(data?.news ?? []))
+        .then((data) => { setSearchResults(data?.news ?? []); setSearchTotal(data?.total ?? 0); })
         .catch(() => setSearchResults([]))
         .finally(() => setSearchLoading(false));
     }, 400);
     return () => clearTimeout(t);
-  }, [newsSearch, crisis.id]);
+  }, [newsSearch, step?.year, step?.month]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function loadMoreSearch() {
+    const nextPage = searchPage + 1;
+    setSearchLoading(true);
+    fetch(`/api/news?search=${encodeURIComponent(newsSearch.trim())}&year=${step.year}&month=${step.month}&page=${nextPage}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => { setSearchResults((prev) => [...(prev ?? []), ...(data?.news ?? [])]); setSearchPage(nextPage); })
+      .catch(() => {})
+      .finally(() => setSearchLoading(false));
+  }
 
   // Shared: apply a step advance with animations + state update (used by host AND participants)
   function applyStepAdvance(nextIndex: number) {
@@ -1278,7 +1307,7 @@ function HistoricalTradingPage() {
       )}
       {/* Dividend toasts */}
       {dividendToasts.length > 0 && (
-        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-2 pointer-events-none">
+        <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 flex flex-col gap-2 pointer-events-none">
           {dividendToasts.map((d) => (
             <div
               key={d.ticker}
@@ -1351,14 +1380,14 @@ function HistoricalTradingPage() {
 
       {/* TOP BAR */}
       <div
-        className="flex-shrink-0 flex items-center gap-4 px-4 py-3 border-b border-[var(--line)]"
+        className="flex-shrink-0 flex items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 sm:py-3 border-b border-[var(--line)]"
         style={{ background: 'var(--surface-strong)', backdropFilter: 'blur(20px)' }}
       >
-        <Link href="/" className="text-[var(--accent)] font-black text-lg tracking-tight flex-shrink-0">
+        <Link href="/" className="text-[var(--accent)] font-black text-base sm:text-lg tracking-tight flex-shrink-0">
           СИБ<span className="text-[var(--foreground)]">ИНВЕСТ</span>
         </Link>
         <div className="flex-1" />
-        {/* Step progress bar */}
+        {/* Step progress bar — hidden on mobile */}
         <div className="hidden sm:flex items-center gap-2">
           <span className="text-xs text-[var(--muted)]">
             {Math.round((state.currentYearIndex / Math.max(1, crisis.years.length - 1)) * 100)}%
@@ -1374,23 +1403,35 @@ function HistoricalTradingPage() {
           </div>
           <span className="text-xs text-[var(--muted)]">Апр 2026</span>
         </div>
-        <div className="flex-shrink-0 text-center">
-          <div className="text-xl font-black text-[var(--accent)]">{step.label}</div>
-          <div className="text-xs text-[var(--muted)]">месяц {state.currentYearIndex + 1} из {crisis.years.length}</div>
+        {/* Mobile: compact progress bar */}
+        <div className="sm:hidden flex-1 max-w-[80px]">
+          <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${(state.currentYearIndex / Math.max(1, crisis.years.length - 1)) * 100}%`,
+                background: 'linear-gradient(90deg, var(--accent), var(--accent-soft))',
+              }}
+            />
+          </div>
         </div>
-        <div className="flex-1" />
+        <div className="flex-shrink-0 text-center">
+          <div className="text-base sm:text-xl font-black text-[var(--accent)]">{step.label}</div>
+          <div className="text-[10px] sm:text-xs text-[var(--muted)]">месяц {state.currentYearIndex + 1}/{crisis.years.length}</div>
+        </div>
+        <div className="flex-1 hidden sm:block" />
         <div className="text-right flex-shrink-0">
-          <div className="text-sm font-bold">{state.username}</div>
-          <div className="text-xs text-[var(--accent)]">{formatMoney(totalNetWorth)}</div>
+          <div className="text-xs sm:text-sm font-bold max-w-[80px] sm:max-w-none truncate">{state.username}</div>
+          <div className="text-[10px] sm:text-xs text-[var(--accent)]">{formatMoney(totalNetWorth)}</div>
         </div>
       </div>
 
       {/* MAIN LAYOUT */}
-      <div className="flex-1 grid grid-cols-[280px_1fr_300px] gap-0 overflow-hidden" style={{ minHeight: 0 }}>
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-[280px_1fr_300px] gap-0 overflow-hidden" style={{ minHeight: 0 }}>
 
         {/* LEFT: STOCK LIST */}
         <div
-          className="flex flex-col overflow-hidden border-r border-[var(--line)]"
+          className={`flex-col overflow-hidden border-r border-[var(--line)] ${mobileTab === 'stocks' ? 'flex' : 'hidden'} md:flex`}
           style={{ background: 'rgba(4,17,13,0.9)' }}
         >
           <div className="flex-shrink-0 p-3 border-b border-[var(--line)]">
@@ -1404,7 +1445,7 @@ function HistoricalTradingPage() {
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--line)' }}
             />
           </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          <div className="flex-1 overflow-y-auto p-2 pb-20 md:pb-2 space-y-0.5">
             {availableStocks.map((stock) => (
               <StockRow
                 key={stock.ticker}
@@ -1421,7 +1462,7 @@ function HistoricalTradingPage() {
         </div>
 
         {/* CENTER: BUDGET + PORTFOLIO SUMMARY */}
-        <div className="flex flex-col overflow-hidden p-4 gap-4" style={{ background: 'rgba(4,17,13,0.6)' }}>
+        <div className={`flex-col overflow-hidden p-4 gap-4 pb-20 md:pb-4 ${mobileTab === 'capital' ? 'flex' : 'hidden'} md:flex`} style={{ background: 'rgba(4,17,13,0.6)' }}>
           <BudgetChart budget={state.budget} invested={portfolioValue} bonds={getBondValue()} total={totalNetWorth} sharpe={getSharpeRatio()} />
 
           {/* INFLATION WIDGET */}
@@ -1610,7 +1651,7 @@ function HistoricalTradingPage() {
 
         {/* RIGHT: NEWS */}
         <div
-          className="flex flex-col overflow-hidden border-l border-[var(--line)]"
+          className={`flex-col overflow-hidden border-l border-[var(--line)] ${mobileTab === 'news' ? 'flex' : 'hidden'} md:flex`}
           style={{ background: 'rgba(4,17,13,0.9)' }}
         >
           {/* Header */}
@@ -1652,27 +1693,118 @@ function HistoricalTradingPage() {
           </div>
 
           {/* News list */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className="flex-1 overflow-y-auto p-3 pb-20 md:pb-3 space-y-2">
             {newsSearch ? (
-              searchLoading ? (
-                <div className="text-center text-xs text-[var(--muted)] py-8">Поиск...</div>
-              ) : !searchResults || searchResults.length === 0 ? (
-                <div className="text-center text-xs text-[var(--muted)] py-8">
-                  Ничего не найдено по запросу «{newsSearch}»
-                </div>
-              ) : searchResults.map((item, i) => (
-                <NewsCard key={i} item={item} index={i} showDate />
-              ))
-            ) : backendNews === null ? (
-              <div className="text-center text-xs text-[var(--muted)] py-8">Загрузка новостей...</div>
-            ) : backendNews.length === 0 ? (
-              <div className="text-center text-xs text-[var(--muted)] py-8">Нет новостей за этот период</div>
+              <>
+                {!searchResults && searchLoading && (
+                  <div className="text-center text-xs text-[var(--muted)] py-8">Поиск...</div>
+                )}
+                {searchResults && searchResults.length === 0 && (
+                  <div className="text-center text-xs text-[var(--muted)] py-8">
+                    Ничего не найдено по запросу «{newsSearch}»
+                  </div>
+                )}
+                {searchResults && searchResults.map((item, i) => (
+                  <NewsCard key={item.id} item={item} index={i} />
+                ))}
+                {searchResults && searchResults.length < searchTotal && (
+                  <button
+                    onClick={loadMoreSearch}
+                    disabled={searchLoading}
+                    className="w-full py-2 text-xs rounded-lg transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--line)' }}
+                  >
+                    {searchLoading ? 'Загрузка...' : `Ещё (${searchTotal - searchResults.length})`}
+                  </button>
+                )}
+              </>
             ) : (
-              backendNews.map((item, i) => (
-                <NewsCard key={i} item={item} index={i} />
-              ))
+              <>
+                {backendNews === null && (
+                  <div className="text-center text-xs text-[var(--muted)] py-8">Загрузка новостей...</div>
+                )}
+                {backendNews !== null && backendNews.length === 0 && (
+                  <div className="text-center text-xs text-[var(--muted)] py-8">Нет новостей за этот период</div>
+                )}
+                {backendNews && backendNews.map((item, i) => (
+                  <NewsCard key={item.id} item={item} index={i} />
+                ))}
+                {backendNews && backendNews.length < newsTotal && (
+                  <button
+                    onClick={() => setNewsPage((p) => p + 1)}
+                    disabled={newsLoading}
+                    className="w-full py-2 text-xs rounded-lg transition-colors"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--muted)', border: '1px solid var(--line)' }}
+                  >
+                    {newsLoading ? 'Загрузка...' : `Ещё (${newsTotal - backendNews.length})`}
+                  </button>
+                )}
+              </>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ── MOBILE BOTTOM NAV ─────────────────────────────────────── */}
+      <div
+        className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-[var(--line)] safe-area-bottom"
+        style={{ background: 'var(--surface-strong)', backdropFilter: 'blur(20px)' }}
+      >
+        <div className="flex items-center h-16 px-2 gap-1">
+          {/* Tabs */}
+          <button
+            onClick={() => setMobileTab('stocks')}
+            className="flex-1 h-full flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors"
+            style={{ color: mobileTab === 'stocks' ? 'var(--accent)' : 'var(--muted)', background: mobileTab === 'stocks' ? 'rgba(49,255,140,0.08)' : 'transparent' }}
+          >
+            <span className="text-base">📊</span>
+            <span className="text-[10px] font-bold">Акции</span>
+          </button>
+          <button
+            onClick={() => setMobileTab('capital')}
+            className="flex-1 h-full flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors"
+            style={{ color: mobileTab === 'capital' ? 'var(--accent)' : 'var(--muted)', background: mobileTab === 'capital' ? 'rgba(49,255,140,0.08)' : 'transparent' }}
+          >
+            <span className="text-base">💼</span>
+            <span className="text-[10px] font-bold">Капитал</span>
+          </button>
+          <button
+            onClick={() => setMobileTab('news')}
+            className="flex-1 h-full flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors"
+            style={{ color: mobileTab === 'news' ? 'var(--accent)' : 'var(--muted)', background: mobileTab === 'news' ? 'rgba(49,255,140,0.08)' : 'transparent' }}
+          >
+            <span className="text-base">📰</span>
+            <span className="text-[10px] font-bold">Новости</span>
+          </button>
+          {/* Action button */}
+          <div className="w-px h-8 mx-1 flex-shrink-0" style={{ background: 'var(--line)' }} />
+          {isMulti && !isHost ? (
+            <button
+              onClick={handleToggleReady}
+              className="flex-[1.4] h-10 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all flex-shrink-0"
+              style={{
+                background: isReady ? 'linear-gradient(135deg, var(--accent), var(--accent-soft))' : 'rgba(255,255,255,0.08)',
+                border: isReady ? 'none' : '1px solid var(--line)',
+                color: isReady ? '#061712' : 'var(--foreground)',
+              }}
+            >
+              {isReady ? '✓ Готов' : '⏳ Готов?'}
+            </button>
+          ) : (
+            <button
+              onClick={handleAdvanceStep}
+              disabled={transitioning}
+              className="flex-[1.4] h-10 rounded-xl font-bold text-xs flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-60 flex-shrink-0"
+              style={{
+                background: isLastStep
+                  ? 'linear-gradient(135deg, var(--accent-pink), rgba(255,79,216,0.6))'
+                  : 'linear-gradient(135deg, var(--accent), var(--accent-soft))',
+                color: '#061712',
+              }}
+            >
+              {isLastStep ? '🏁 Итоги' : '📅 Далее'}
+            </button>
+          )}
         </div>
       </div>
     </div>
