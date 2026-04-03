@@ -1096,8 +1096,9 @@ function HistoricalTradingPage() {
   const [isReady, setIsReady] = useState(false);
   const [roomPlayers, setRoomPlayers] = useState<{ username: string; budget: number; portfolioJson: string }[]>([]);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Track last step we applied animations for (prevents double-fire from polling)
-  const lastAnimatedStepRef = useRef(-1);
+  // Track last step we applied animations for (prevents double-fire from polling or remount)
+  // Initialize to currentYearIndex so a page remount never re-fires events for the current step
+  const lastAnimatedStepRef = useRef(state.currentYearIndex);
   // Track which steps already triggered event/crisis overlays (prevents double-show)
   const shownEventSteps = useRef<Set<number>>(new Set());
   const shownCrisisSteps = useRef<Set<number>>(new Set());
@@ -1113,7 +1114,7 @@ function HistoricalTradingPage() {
     if (!step) return;
     setBackendNews(null);
     setNewsLoading(true);
-    fetch(`/api/news?year=${step.year}&month=${step.month}&page=1&limit=5`)
+    fetch(`/api/news?year=${step.year}&month=${step.month}&page=1&limit=10`)
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (!data) return;

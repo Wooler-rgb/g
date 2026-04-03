@@ -593,7 +593,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const isUp = change >= 0;
   const holding = state.portfolio[ticker];
 
-  const COMMISSION_RATE = 0.005;
+  const COMMISSION_RATE = 0.01;
   const sharesInput = parseInt(amount) || 0;
   const totalCost = sharesInput * price;
   const commission = Math.ceil(totalCost * COMMISSION_RATE);
@@ -630,7 +630,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
     }
   }
 
-  const maxBuyShares = price > 0 ? Math.floor(state.budget / (price * 1.005)) : 0;
+  const maxBuyShares = price > 0 ? Math.floor(state.budget / (price * 1.01)) : 0;
   const maxSellShares = holding?.shares ?? 0;
 
   // ---- Build extended price history for chart ----
@@ -922,7 +922,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                   <span>{sharesInput.toLocaleString('ru-RU')} шт</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-[var(--muted)]">Комиссия (0.5%)</span>
+                  <span className="text-[var(--muted)]">Комиссия (1%)</span>
                   <span className="text-[var(--warning)]">−{formatMoney(commission)}</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold border-t border-[var(--line)] pt-2">
